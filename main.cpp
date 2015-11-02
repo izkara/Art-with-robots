@@ -103,7 +103,7 @@ void displayFunction(void)
     drawAxes(sphereRadius*3.0);
 
     // Draw the fixed sphere.
-    static const hduVector3Dd fixedSpherePosition(0, 0, 0);
+   // static const hduVector3Dd fixedSpherePosition(0, 0, 0);
     static const float fixedSphereColor[4] = {.2, .8, .8, .8};
     GLUquadricObj* pQuadObj = gluNewQuadric();
    // drawSphere(pQuadObj, fixedSpherePosition, fixedSphereColor, sphereRadius);
@@ -182,33 +182,48 @@ void handleMenu(int ID)
     }
 }
 
+int timeFrame = 0;
 
 /*******************************************************************************
  Given the position is space, calculates the (modified) coulomb force.
 *******************************************************************************/
 hduVector3Dd forceField(hduVector3Dd pos, hduVector3Dd* shape, int shape_size)
 {
-	double scale = 12.0;
+	double scaleInside = 1.0;
+	double scaleClose = 3.0;
+	double scaleFar = 12.0;
 	hduVector3Dd forceVec(0, 0, 0);
+	timeFrame++;
 	for (int i = 0; i < shape_size; i++) {
 		hduVector3Dd diff = pos - shape[i];
 		double dist = diff.magnitude();
+		double pointDist = (shape[i] - shape[i + 1]).magnitude();
 
+			// if two charges overlap...
+			if (dist < sphereRadius * 2)// && i < shape_size && pointDist < 1.0)
+			{
+				// Attract the charge to the center of the sphere.
+				hduVector3Dd unitPos = normalize(diff);
+				//cout << "||| x = " << unitPos[0] << " y = " << unitPos[1] << " z = " << unitPos[2] << "\n";
+				//if (timeFrame > 10) {
 
-		// if two charges overlap...
-		if (dist < sphereRadius*2.0)
-		{
-			// Attract the charge to the center of the sphere.
-			hduVector3Dd unitPos = normalize(diff);
-			return -scale*unitPos;
-		}
+				//	cout << "SCALE*UNITPOS: " << (-scaleClose*unitPos).magnitude() << '\n';
+				//	//cout << "||| x = " << -scale*unitPos[0] << " y = " << -scale*unitPos[1] << " z = " << -scale*unitPos[2] << "\n";
+				//	timeFrame = 0;
+				//}
+				return -scaleClose*unitPos;
+			}
+		
 		else
 		{
 			hduVector3Dd unitPos = normalize(diff);
-			forceVec += -scale*unitPos / (dist*dist);
+			forceVec += -scaleFar*unitPos / (dist*dist);
+			//cout << "FORCEVEC: " << forceVec.magnitude() << '\n';
 		}
 	}
+
 		forceVec *= charge;
+
 		return forceVec;
 	
 }
@@ -290,53 +305,68 @@ void exitHandler()
 
 void parse(string fileName)
 {
-	   cout << "Parse called" << endl;
+	   //cout << "Parse called" << endl;
 		ifstream stream1(fileName);		
 		string line;
 		double coords[3];
-		cout << "At while" << endl;
+		//cout << "At while" << endl;
 		while (getline(stream1, line)) {
-			Shape_size++;
+			if (line.length() > 0 && line.substr(0, 2) == "v ") {
+				Shape_size++;
+			}
 		}
-		Shape_size++;
-		cout<<Shape_size << endl;
+		//cout<<Shape_size << endl;
 		Shape = new hduVector3Dd[Shape_size];
 
 		ifstream stream(fileName);
 		int j = 0;
 		while (getline(stream, line)) {
-			j++;
-			size_t i = 2;
+			//cout << "start getline while\n";
+			
+			//cout << "Line Length: " << line.length() << "\n";
+			
+			if (line.length() > 0 && line.substr(0, 2) == "v ") {
 
-			for (int coord = 0; coord < 3; coord++) {
-				//for each coordinate find corresponding substring n and convert to float
-				string number;
+				//cout << "Line[0]: " << line[0] << "\n";
+				//cout << "STARTING WITH V" << "\n";
+				size_t i = 2;
 
-				int count = 0;
-				while (i < line.length() - 1 && line[i] != ' ') {
+				for (int coord = 0; coord < 3; coord++) {
+					//for each coordinate find corresponding substring n and convert to float
+					string number;
+
+					int count = 0;
+					while (i < line.length() - 1 && line[i] != ' ') {
+						i++;
+						count++;
+					}
 					i++;
 					count++;
+
+					number = line.substr(i - count, count);
+					coords[coord] = stod(number) * 10;
+
 				}
-				i++;
-				count++;
-
-				number = line.substr(i - count, count);
-				coords[coord] = stod(number)*10;
-
+				if (coords[0] == 0 && coords[1] == 0 && coords[2] == 0) {
+					cout << "line number is " << j << "\n";
+				}
+				//cout << "||| x = " << coords[0] << " y = " << coords[1] << " z = " << coords[2] << "\n";
+				hduVector3Dd vc(coords[0], coords[2] - 35, coords[1]);//coords[1], coords[2]);//
+				Shape[j] = vc;
+				j++;
 			}
-			hduVector3Dd vc(coords[0], coords[2]-35, coords[1]);
-			Shape[j] = vc;
-			
 
+			//cout << "exited if statement\n";
 		}
 
-		cout << "exited parse\n";
+		//cout << "exited parse\n";
 		return;
 }
 
 void print(hduVector3Dd* Shape, int Shape_size) {
 	for (int i = 0; i < Shape_size; i++)
 	{
+		//getchar();
 		cout << "x = " << Shape[i][0] << " y = " << Shape[i][1] << " z = " << Shape[i][2] << "\n";
 	}
 }
@@ -359,7 +389,7 @@ int main(int argc, char* argv[])
     
     atexit(exitHandler);
 
-	string file = "models/justcurves2.obj";
+	string file = "models/1.obj";
 
 	glPointSize(10.0f);
 	cout << "entering parse\n";
@@ -369,9 +399,6 @@ int main(int argc, char* argv[])
 	print(Shape, Shape_size);
 	cout << "exiting print\n";
 
-	glBegin(GL_POINTS);
-	glVertex3f(2, 2, 0);//upper-right corner
-	glEnd();
 
 
     // Initialize the device.  This needs to be called before any other
